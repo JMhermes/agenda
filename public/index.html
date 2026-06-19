@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda Diaria</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:#0a0a0a; color:#e0e0e0;
+    font-family:'Segoe UI',Arial,sans-serif;
+    min-height:100vh; display:flex; justify-content:center; padding:20px;
+  }
+  #app { width:100%; max-width:750px; }
+
+  header { text-align:center; padding:15px 0 10px; border-bottom:1px solid rgba(255,255,255,.08); margin-bottom:15px; }
+  header h1 { font-size:26px; font-weight:900; color:#ffd700; letter-spacing:3px; }
+  header #fecha { font-size:14px; color:rgba(255,255,255,.4); margin-top:4px; }
+
+  /* ─── Agendas ─── */
+  #agendaTabs {
+    display:flex; gap:8px; margin-bottom:15px; flex-wrap:wrap; align-items:center;
+  }
+  .agenda-tab {
+    padding:8px 18px; border:none; border-radius:8px;
+    font-size:13px; font-weight:600; cursor:pointer;
+    background:#1a1a2e; color:rgba(255,255,255,.6);
+    transition:all .2s; display:flex; align-items:center; gap:8px;
+  }
+  .agenda-tab:hover { transform:scale(1.04); }
+  .agenda-tab.activo { background:#2563eb; color:#fff; }
+  .agenda-tab .del {
+    background:rgba(255,255,255,.15); border:none; border-radius:4px;
+    color:#fff; font-size:12px; cursor:pointer; padding:0 5px; line-height:18px;
+  }
+  .agenda-tab .del:hover { background:#ef4444; }
+  #btnNuevaAgenda {
+    padding:8px 16px; border:none; border-radius:8px;
+    font-size:13px; font-weight:700; cursor:pointer;
+    background:#22c55e; color:#fff; transition:all .2s;
+  }
+  #btnNuevaAgenda:hover { transform:scale(1.05); }
+
+  /* ─── Formulario de tareas ─── */
+  #formAgregar {
+    display:flex; gap:8px; margin-bottom:15px; flex-wrap:wrap;
+  }
+  #formAgregar input, #formAgregar button {
+    padding:9px 12px; border:none; border-radius:8px; font-size:13px;
+  }
+  #formAgregar input {
+    background:#1a1a2e; color:#e0e0e0; flex:1; min-width:80px;
+  }
+  #formAgregar input::placeholder { color:rgba(255,255,255,.3); }
+  #formAgregar button {
+    background:#f59e0b; color:#fff; font-weight:700; cursor:pointer;
+    transition:all .2s;
+  }
+  #formAgregar button:hover { transform:scale(1.05); }
+
+  .filtros {
+    display:flex; gap:6px; margin-bottom:15px; flex-wrap:wrap;
+  }
+  .filtros button {
+    padding:5px 14px; border:none; border-radius:6px;
+    font-size:12px; font-weight:600; cursor:pointer;
+    background:#1a1a2e; color:rgba(255,255,255,.5); transition:all .2s;
+  }
+  .filtros button.activo { background:#2563eb; color:#fff; }
+
+  /* ─── Tareas ─── */
+  .tarea {
+    display:flex; align-items:center; gap:10px;
+    padding:10px 14px; margin-bottom:6px;
+    background:#13131f; border-radius:8px;
+    border-left:4px solid #555; transition:all .2s;
+  }
+  .tarea:hover { background:#1a1a2e; }
+  .tarea.completada { opacity:.5; border-left-color:#22c55e; }
+  .tarea .hora { font-size:12px; font-weight:700; color:#ffd700; min-width:45px; }
+  .tarea .texto { flex:1; font-size:13px; font-weight:600; }
+  .tarea.completada .texto { text-decoration:line-through; color:rgba(255,255,255,.3); }
+  .tarea .acciones { display:flex; gap:5px; }
+  .tarea .acciones button {
+    border:none; border-radius:5px; padding:3px 8px;
+    font-size:11px; font-weight:600; cursor:pointer; transition:all .2s;
+  }
+  .tarea .btn-done { background:#22c55e; color:#fff; }
+  .tarea .btn-del { background:#ef4444; color:#fff; }
+  .tarea .acciones button:hover { transform:scale(1.1); }
+
+  #vacio { text-align:center; padding:30px; color:rgba(255,255,255,.15); font-size:14px; }
+  #contador { text-align:center; font-size:12px; color:rgba(255,255,255,.2); margin-top:10px; padding-bottom:20px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>📋 AGENDA</h1>
+    <div id="fecha" style="font-size:14px;color:rgba(255,255,255,.4);margin-top:4px;"></div>
+  </header>
+
+  <!-- Tabs de agendas -->
+  <div id="agendaTabs"></div>
+  <div style="margin-bottom:12px">
+    <button id="btnNuevaAgenda" style="padding:8px 18px;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;background:#22c55e;color:#fff;transition:all .2s">+ Nueva Agenda</button>
+  </div>
+
+  <!-- Formulario de tareas -->
+  <div id="formAgregar">
+    <input id="inputHora" type="time">
+    <input id="inputTitulo" placeholder="¿Qué tienes que hacer?" autofocus>
+    <label style="display:flex;align-items:center;gap:5px;color:rgba(255,255,255,.6);font-size:12px;cursor:pointer">
+      <input id="inputRepetir" type="checkbox" style="width:16px;height:16px;cursor:pointer"> 🔁 Diario
+    </label>
+    <button id="btnAgregarTarea">›</button>
+  </div>
+
+  <div class="filtros">
+    <button class="activo" data-f="todas">Todas</button>
+    <button data-f="pendientes">Pendientes</button>
+    <button data-f="completadas">Completadas</button>
+  </div>
+
+  <div id="lista"></div>
+  <div id="vacio">No hay tareas</div>
+  <div id="contador"></div>
+</div>
+
+<script>
+const STORAGE = 'agenda_multiple';
+let data = JSON.parse(localStorage.getItem(STORAGE)) || [];
+// data = [{ id, nombre, tareas: [{id, hora, texto, hecho}] }]
+let agendaActiva = data.length > 0 ? data[0].id : null;
+let filtro = 'todas';
+
+function guardar() {
+  localStorage.setItem(STORAGE, JSON.stringify(data));
+  // Sincronizar con el servidor para notificaciones
+  fetch('/api/sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  }).then(r => r.json()).then(resp => {
+    // Si el servidor reporta tareas completadas vía Telegram, marcarlas en localStorage
+    if (resp.completadas && resp.completadas.length > 0) {
+      resp.completadas.forEach(nombre => {
+        data.forEach(agenda => {
+          agenda.tareas.forEach(t => {
+            if (t.texto === nombre && !t.hecho) {
+              t.hecho = true;
+            }
+          });
+        });
+      });
+      localStorage.setItem(STORAGE, JSON.stringify(data));
+    }
+  }).catch(() => {}); // Silencioso si falla
+  render();
+}
+
+function nuevaAgenda() {
+  const nom = prompt('Nombre de la nueva agenda:');
+  if (!nom || !nom.trim()) return;
+  data.push({ id: Date.now(), nombre: nom.trim(), tareas: [] });
+  agendaActiva = data[data.length - 1].id;
+  guardar();
+}
+
+function delAgenda(id) {
+  if (!confirm('¿Eliminar esta agenda y todas sus tareas?')) return;
+  data = data.filter(a => a.id !== id);
+  if (agendaActiva === id) agendaActiva = data.length > 0 ? data[0].id : null;
+  guardar();
+}
+
+function render() {
+  const ahora = new Date();
+  document.getElementById('inputHora').value =
+    String(ahora.getHours()).padStart(2,'0') + ':' + String(ahora.getMinutes()).padStart(2,'0');
+
+  document.getElementById('fecha').textContent =
+    ahora.toLocaleDateString('es-ES', { weekday:'long', year:'numeric', month:'long', day:'numeric' })
+      .replace(/^./, c => c.toUpperCase());
+
+  // Tabs
+  const tabsDiv = document.getElementById('agendaTabs');
+  tabsDiv.innerHTML = '';
+  let agenda = data.find(a => a.id === agendaActiva);
+
+  data.forEach(a => {
+    const btn = document.createElement('button');
+    btn.className = 'agenda-tab' + (a.id === agendaActiva ? ' activo' : '');
+    btn.innerHTML = `${a.nombre} (${a.tareas.length}) <span class="del">✕</span>`;
+    btn.onclick = (e) => {
+      if (e.target.classList.contains('del')) return;
+      agendaActiva = a.id;
+      render();
+    };
+    btn.querySelector('.del').onclick = (e) => { e.stopPropagation(); delAgenda(a.id); };
+    tabsDiv.appendChild(btn);
+  });
+  // btnNueva ahora esta en el HTML fijo, no se crea aca
+
+  const lista = document.getElementById('lista');
+  const vacio = document.getElementById('vacio');
+  const contador = document.getElementById('contador');
+  lista.innerHTML = '';
+
+  if (!agenda) {
+    vacio.style.display = 'block';
+    vacio.textContent = 'Presiona "+ Agregar" para crear tu primera agenda 📋';
+    contador.textContent = '';
+    return;
+  }
+
+  const tareas = agenda.tareas.filter(t => {
+    if (filtro === 'pendientes') return !t.hecho;
+    if (filtro === 'completadas') return t.hecho;
+    return true;
+  });
+
+  if (tareas.length === 0) {
+    vacio.style.display = 'block';
+    vacio.textContent = 'No hay tareas en esta agenda — agrega una arriba 📝';
+    contador.textContent = '';
+    return;
+  }
+  vacio.style.display = 'none';
+
+  tareas.sort((a,b) => a.hora.localeCompare(b.hora));
+  tareas.forEach(t => {
+    const div = document.createElement('div');
+    div.className = 'tarea' + (t.hecho ? ' completada' : '');
+    div.innerHTML = `
+      <div class="hora">${t.hora}</div>
+      <div class="texto">${escapeHTML(t.texto)}${t.repetir ? ' 🔁' : ''}</div>
+      <div class="acciones">
+        <button class="btn-done">${t.hecho ? '↩' : '✓'}</button>
+        <button class="btn-del">✕</button>
+      </div>
+    `;
+    div.querySelector('.btn-done').onclick = () => { t.hecho = !t.hecho; guardar(); };
+    div.querySelector('.btn-del').onclick = () => {
+      agenda.tareas = agenda.tareas.filter(x => x !== t);
+      guardar();
+    };
+    lista.appendChild(div);
+  });
+
+  const total = agenda.tareas.length;
+  const hechas = agenda.tareas.filter(t => t.hecho).length;
+  contador.textContent = `${total} tareas • ${total - hechas} pendientes • ${hechas} completadas`;
+}
+
+function escapeHTML(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+document.getElementById('btnNuevaAgenda').onclick = nuevaAgenda;
+document.getElementById('btnAgregarTarea').onclick = () => {
+  const agenda = data.find(a => a.id === agendaActiva);
+  if (!agenda) { alert('Primero crea una agenda con "+ Agregar"'); return; }
+  const hora = document.getElementById('inputHora').value;
+  const texto = document.getElementById('inputTitulo').value.trim();
+  const repetir = document.getElementById('inputRepetir').checked;
+  if (!texto) { alert('Escribe qué tienes que hacer'); return; }
+  agenda.tareas.push({ id: Date.now(), hora, texto, hecho: false, repetir });
+  document.getElementById('inputTitulo').value = '';
+  document.getElementById('inputTitulo').focus();
+  guardar();
+};
+
+document.getElementById('inputTitulo').onkeydown = e => {
+  if (e.key === 'Enter') document.getElementById('btnAgregarTarea').click();
+};
+
+document.querySelectorAll('.filtros button').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.filtros button').forEach(b => b.classList.remove('activo'));
+    btn.classList.add('activo');
+    filtro = btn.dataset.f;
+    render();
+  };
+});
+
+// Inicializar
+if (data.length === 0) {
+  data.push({ id: Date.now(), nombre: 'Mi día', tareas: [] });
+  agendaActiva = data[0].id;
+}
+render();
+
+// Auto-sync cada 30 segundos para detectar tareas completadas vía 👍
+setInterval(() => {
+  fetch('/api/sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  }).then(r => r.json()).then(resp => {
+    if (resp.completadas && resp.completadas.length > 0) {
+      let changed = false;
+      resp.completadas.forEach(nombre => {
+        data.forEach(agenda => {
+          agenda.tareas.forEach(t => {
+            if (t.texto === nombre && !t.hecho) {
+              t.hecho = true;
+              changed = true;
+            }
+          });
+        });
+      });
+      if (changed) {
+        localStorage.setItem(STORAGE, JSON.stringify(data));
+        render();
+      }
+    }
+  }).catch(() => {});
+}, 30000);
+</script>
+</body>
+</html>

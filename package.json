@@ -1,0 +1,12 @@
+{
+  "name": "agenda-diaria",
+  "version": "1.0.0",
+  "description": "Agenda diaria con notificaciones Telegram",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
