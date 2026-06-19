@@ -183,6 +183,54 @@ app.get('/api/hecho/:taskName', (req, res) => {
   }
 });
 
+// ── Modo check (GitHub Actions) ──
+if (process.argv.includes('--check')) {
+  const { hora: horaActual, fecha: hoy } = getHoraRD();
+  let tasks = loadTareas();
+  let notificados = 0;
+
+  // Resetear tareas repetitivas
+  tasks.forEach(t => {
+    if (t.repetir && t.fecha !== hoy) {
+      t.notificada = false;
+      t.fecha = hoy;
+      t.hecho_desde_telegram = false;
+      delete t.notificado_en;
+    }
+  });
+
+  tasks.forEach(t => {
+    if (!t.activa || t.notificada || !t.hora) return;
+    if (t.hora === horaActual && t.fecha === hoy) {
+      sendTelegram(
+        `⏰ Recordatorio: Es hora de ${t.nombre}. Detalles: ${t.descripcion || ''}`,
+        [[{ text: '✅ Hecho', callback_data: `done_${t.nombre.substring(0,30)}` }]]
+      );
+      t.notificada = true;
+      t.notificado_en = new Date().toISOString();
+      notificados++;
+      console.log(`📨 Notificado: ${t.nombre}`);
+    }
+  });
+
+  saveTareas(tasks);
+  console.log(`✅ Check completado. ${notificados} notificaciones enviadas.`);
+  
+  // Commit y push cambios si hubo
+  if (notificados > 0) {
+    const { execSync } = require('child_process');
+    try {
+      execSync('git config user.name "Agenda Bot" && git config user.email "agenda@bot.local"', { cwd: __dirname });
+      execSync('git add data/tareas.json && git commit -m "auto: notificaciones enviadas"', { cwd: __dirname });
+      execSync('git push', { cwd: __dirname });
+      console.log('📤 Cambios subidos a GitHub');
+    } catch(e) {
+      console.log('⚠️ No se pudo hacer git push:', e.message);
+    }
+  }
+  process.exit(0);
+}
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log('═══════════════════════════════════════');
   console.log('  AGENDA DIARIA - Puerto ' + PORT);
