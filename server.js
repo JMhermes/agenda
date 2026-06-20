@@ -187,35 +187,96 @@ app.get('/api/hecho/:taskName', (req, res) => {
 if (process.argv.includes('--check')) {
   const { hora: horaActual, fecha: hoy } = getHoraRD();
   let tasks = loadTareas();
-  let notificados = 0;
 
-  // Resetear tareas repetitivas
-  tasks.forEach(t => {
-    if (t.repetir && t.fecha !== hoy) {
-      t.notificada = false;
-      t.fecha = hoy;
-      t.hecho_desde_telegram = false;
-      delete t.notificado_en;
-    }
-  });
+  // ── 1. Procesar 👍 y callback queries pendientes ──
+  const MSG_MAP_FILE = path.join(__dirname, 'data', 'msg_map.json');
+  let pollOffset = 0;
+  try { const m = JSON.parse(fs.readFileSync(MSG_MAP_FILE, 'utf8')); pollOffset = m.offset || 0; } catch(e) {}
 
-  tasks.forEach(t => {
-    if (!t.activa || t.notificada || !t.hora) return;
-    if (t.hora === horaActual && t.fecha === hoy) {
-      sendTelegram(
-        `⏰ Recordatorio: Es hora de ${t.nombre}. Detalles: ${t.descripcion || ''}`,
-        [[{ text: '✅ Hecho', callback_data: `done_${t.nombre.substring(0,30)}` }]]
-      );
-      t.notificada = true;
-      t.notificado_en = new Date().toISOString();
-      notificados++;
-      console.log(`📨 Notificado: ${t.nombre}`);
-    }
-  });
+  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?offset=${pollOffset}&timeout=1&allowed_updates=["message","callback_query"]`;
+  https.get(url, (res) => {
+    let body = '';
+    res.on('data', c => body += c);
+    res.on('end', () => {
+      try {
+        const data = JSON.parse(body);
+        if (data.ok) {
+          let maxO = pollOffset;
+          for (const upd of data.result || []) {
+            maxO = Math.max(maxO, upd.update_id + 1);
+            const msg = upd.message || {};
+            const cq = upd.callback_query || {};
+            const text = (msg.text || cq.data || '').trim();
 
-  saveTareas(tasks);
-  console.log(`✅ Check completado. ${notificados} notificaciones enviadas.`);
-  process.exit(0);
+            // Callback ✅ Hecho
+            if (cq.data && cq.data.startsWith('done_')) {
+              const taskName = cq.data.substring(5);
+              for (const t of tasks) {
+                if (t.activa && t.nombre === taskName) {
+                  t.notificada = true;
+                  t.hecho_desde_telegram = true;
+                  t.notificado_en = new Date().toISOString();
+                  const aUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/answerCallbackQuery?callback_query_id=${cq.id}&text=✅+Hecho!`;
+                  https.get(aUrl, () => {}).on('error', () => {});
+                  console.log(`✅ Callback procesado: ${taskName}`);
+                  break;
+                }
+              }
+            }
+
+            // 👍 marcar tarea pendiente como hecha
+            if (text.includes('👍')) {
+              let marked = false;
+              for (let i = 0; i < tasks.length; i++) {
+                if (tasks[i].activa && !tasks[i].notificada) {
+                  marked = tasks[i].nombre;
+                  tasks[i].notificada = true;
+                  tasks[i].hecho_desde_telegram = true;
+                  tasks[i].notificado_en = new Date().toISOString();
+                  break;
+                }
+              }
+              if (marked) {
+                sendTelegram(`✅ Tarea marcada como hecha: ${marked}`);
+                console.log(`👍 Procesado: ${marked}`);
+              }
+            }
+          }
+          if (maxO > pollOffset) {
+            fs.writeFileSync(MSG_MAP_FILE, JSON.stringify({ offset: maxO }));
+          }
+        }
+      } catch(e) {}
+    });
+
+    // ── 2. Enviar notificaciones de tareas pendientes ──
+    let notificados = 0;
+    tasks.forEach(t => {
+      if (t.repetir && t.fecha !== hoy) {
+        t.notificada = false;
+        t.fecha = hoy;
+        t.hecho_desde_telegram = false;
+        delete t.notificado_en;
+      }
+    });
+    tasks.forEach(t => {
+      if (!t.activa || t.notificada || !t.hora) return;
+      if (t.hora === horaActual && t.fecha === hoy) {
+        sendTelegram(
+          `⏰ Recordatorio: Es hora de ${t.nombre}. Detalles: ${t.descripcion || ''}`,
+          [[{ text: '✅ Hecho', callback_data: `done_${t.nombre.substring(0,30)}` }]]
+        );
+        t.notificada = true;
+        t.notificado_en = new Date().toISOString();
+        notificados++;
+        console.log(`📨 Notificado: ${t.nombre}`);
+      }
+    });
+
+    saveTareas(tasks);
+    console.log(`✅ Check completado. ${notificados} notificaciones nuevas.`);
+    process.exit(0);
+  }).on('error', () => { process.exit(0); });
 }
 
 app.listen(PORT, '0.0.0.0', () => {
