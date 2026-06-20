@@ -215,19 +215,6 @@ if (process.argv.includes('--check')) {
 
   saveTareas(tasks);
   console.log(`✅ Check completado. ${notificados} notificaciones enviadas.`);
-  
-  // Commit y push cambios si hubo
-  if (notificados > 0) {
-    const { execSync } = require('child_process');
-    try {
-      execSync('git config user.name "Agenda Bot" && git config user.email "agenda@bot.local"', { cwd: __dirname });
-      execSync('git add data/tareas.json && git commit -m "auto: notificaciones enviadas"', { cwd: __dirname });
-      execSync('git push', { cwd: __dirname });
-      console.log('📤 Cambios subidos a GitHub');
-    } catch(e) {
-      console.log('⚠️ No se pudo hacer git push:', e.message);
-    }
-  }
   process.exit(0);
 }
 

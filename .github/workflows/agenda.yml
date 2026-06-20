@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT || github.token }}
 
       - name: Instalar dependencias
         run: npm install
@@ -19,3 +21,16 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: "8869186406"
         run: node server.js --check
+
+      - name: Commit y push cambios (tareas notificadas)
+        run: |
+          if [ -n "$(git status --porcelain data/tareas.json 2>/dev/null)" ]; then
+            git config user.name "Agenda Bot"
+            git config user.email "agenda@bot.local"
+            git add data/tareas.json
+            git commit -m "auto: notificaciones $(date -u +%Y-%m-%dT%H:%MZ)"
+            git push
+            echo "✅ Cambios subidos a GitHub"
+          else
+            echo "⏳ Sin cambios"
+          fi
