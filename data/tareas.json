@@ -4,10 +4,11 @@
     "nombre": "JM Typing",
     "descripcion": "Agenda: Dia a Dia en Vacaciones",
     "hora": "22:00",
-    "fecha": "2026-06-19",
+    "fecha": "2026-06-20",
     "notificada": false,
     "activa": true,
-    "repetir": true
+    "repetir": true,
+    "hecho_desde_telegram": false
   },
   {
     "id": 2,
@@ -26,10 +27,10 @@
     "nombre": "nose",
     "descripcion": "Agenda: Dia a Dia en Vacaciones",
     "hora": "13:54",
-    "fecha": "2026-06-19",
-    "notificada": true,
+    "fecha": "2026-06-20",
+    "notificada": false,
     "activa": true,
     "repetir": true,
-    "notificado_en": "2026-06-19T17:54:39.560Z"
+    "hecho_desde_telegram": false
   }
 ]
